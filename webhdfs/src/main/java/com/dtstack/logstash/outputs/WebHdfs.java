@@ -17,10 +17,12 @@
  */
 package com.dtstack.logstash.outputs;
 
+import com.dtstack.jlogstash.outputs.BaseOutput;
+
 import java.util.Map;
 
 @SuppressWarnings("serial")
-public class WebHdfs extends BaseOutput{
+public class WebHdfs extends BaseOutput {
 
 	public WebHdfs(Map config) {
 		super(config);
