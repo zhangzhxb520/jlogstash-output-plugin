@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -17,16 +17,8 @@
  */
 package com.dtstack.jlogstash.outputs;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-//import java.util.concurrent.atomic.AtomicLong;
-
+import com.dtstack.jlogstash.annotation.Required;
+import com.dtstack.jlogstash.render.Formatter;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionRequest;
@@ -49,13 +41,20 @@ import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.dtstack.jlogstash.annotation.Required;
-import com.dtstack.jlogstash.outputs.BaseOutput;
-import com.dtstack.jlogstash.render.Formatter;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+//import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
- * 
+ *
  * Reason: TODO ADD REASON(可选)
  * Date: 2016年11月24日 下午1:35:21
  * Company: www.dtstack.com
@@ -65,75 +64,75 @@ import com.dtstack.jlogstash.render.Formatter;
 @SuppressWarnings("serial")
 public class Elasticsearch5 extends BaseOutput {
     private static final Logger logger = LoggerFactory.getLogger(Elasticsearch5.class);
-    
-    @Required(required=true)
+
+    @Required(required = true)
     public static String index;
-    
-    public static String indexTimezone =null;
+
+    public static String indexTimezone = null;
 
     public static String documentId;
-    
+
     public static String documentType = "logs";
-    
+
     public static String cluster;
-    
-    @Required(required=true)
+
+    @Required(required = true)
     public static List<String> hosts;
-    
-    private static boolean sniff=true;
-    
-    private static int bulkActions = 20000; 
-    
+
+    private static boolean sniff = true;
+
+    private static int bulkActions = 20000;
+
     private static int bulkSize = 15;
-    
-    private static int  flushInterval = 5;//seconds
-    
-    private static int	concurrentRequests = 1;
-        
+
+    private static int flushInterval = 5;//seconds
+
+    private static int concurrentRequests = 1;
+
     private BulkProcessor bulkProcessor;
-    
+
     private TransportClient esclient;
-    
+
 //    private AtomicLong sendReqs = new AtomicLong(0);
 //    
 //    private AtomicLong ackReqs = new AtomicLong(0);
 //   
 //    private int maxLag = bulkActions;
-    
+
 //    private AtomicLong needDelayTime = new AtomicLong(0l);
-    
+
     private AtomicBoolean isClusterOn = new AtomicBoolean(true);
-    
+
     private ExecutorService executor;
-    
+
     @SuppressWarnings("rawtypes")
-	public Elasticsearch5(Map config) {
+    public Elasticsearch5(Map config) {
         super(config);
     }
 
     public void prepare() {
-    	try {
-    		executor = Executors.newSingleThreadExecutor();
-             this.initESClient();
-            } catch (Exception e) {
-                logger.error(e.getMessage());
-                System.exit(1);
-            }
+        try {
+            executor = Executors.newSingleThreadExecutor();
+            this.initESClient();
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            System.exit(1);
+        }
     }
 
 
     private void initESClient() throws NumberFormatException,
             UnknownHostException {
-    	    	
-        Builder builder  =Settings.builder().put("client.transport.sniff", sniff);  
-        if(StringUtils.isNotBlank(cluster)){
-        	builder.put("cluster.name", cluster);
+
+        Builder builder = Settings.builder().put("client.transport.sniff", sniff);
+        if (StringUtils.isNotBlank(cluster)) {
+            builder.put("cluster.name", cluster);
         }
         Settings settings = builder.build();
         esclient = new PreBuiltTransportClient(settings);
         InetSocketTransportAddress[] addresss = new InetSocketTransportAddress[hosts.size()];
-        for (int i=0;i<hosts.size();i++) {
-        	String host = hosts.get(i);
+        for (int i = 0; i < hosts.size(); i++) {
+            String host = hosts.get(i);
             String[] hp = host.split(":");
             String h = null, p = null;
             if (hp.length == 2) {
@@ -154,7 +153,7 @@ public class Elasticsearch5 extends BaseOutput {
                     @Override
                     public void afterBulk(long arg0, BulkRequest arg1,
                                           BulkResponse arg2) {
-                    	
+
                         List<ActionRequest> requests = arg1.requests();
                         int toberetry = 0;
                         int totalFailed = 0;
@@ -163,27 +162,27 @@ public class Elasticsearch5 extends BaseOutput {
                                 switch (item.getFailure().getStatus()) {
                                     case TOO_MANY_REQUESTS:
                                         if (totalFailed == 0) {
-                                            logger.error("too many request {}:{}",item.getIndex(),item.getFailureMessage());
-                                        } 
+                                            logger.error("too many request {}:{}", item.getIndex(), item.getFailureMessage());
+                                        }
                                         addFailedMsg(requests.get(item.getItemId()));
                                         break;
                                     case SERVICE_UNAVAILABLE:
                                         if (toberetry == 0) {
-                                            logger.error("sevice unavaible cause {}:{}",item.getIndex(),item.getFailureMessage());
+                                            logger.error("sevice unavaible cause {}:{}", item.getIndex(), item.getFailureMessage());
                                         }
 //                                        toberetry++;
                                         addFailedMsg(requests.get(item.getItemId()));
                                         break;
                                     default:
                                         if (totalFailed == 0) {
-                                            logger.error("data formate cause {}:{}:{}",item.getIndex(),((IndexRequest)requests.get(item.getItemId())).sourceAsMap(),item.getFailureMessage());
+                                            logger.error("data formate cause {}:{}:{}", item.getIndex(), ((IndexRequest) requests.get(item.getItemId())).sourceAsMap(), item.getFailureMessage());
                                         }
                                         break;
                                 }
                                 totalFailed++;
                             }
                         }
-                        
+
 //                        addAckSeqs(requests.size());
 
                         if (totalFailed > 0) {
@@ -207,11 +206,11 @@ public class Elasticsearch5 extends BaseOutput {
                     public void afterBulk(long arg0, BulkRequest arg1,
                                           Throwable arg2) {
                         logger.error("bulk got exception:", arg2);
-                        
-                        for(ActionRequest request : arg1.requests()){
-                        	addFailedMsg(request);
+
+                        for (ActionRequest request : arg1.requests()) {
+                            addFailedMsg(request);
                         }
-                        
+
 //                        addAckSeqs(arg1.requests().size());
 //                        setDelayTime(1000);
                     }
@@ -230,7 +229,7 @@ public class Elasticsearch5 extends BaseOutput {
     }
 
     @SuppressWarnings("rawtypes")
-	public void emit(Map event) {
+    public void emit(Map event) {
         String _index = Formatter.format(event, index, indexTimezone);
         String _indexType = Formatter.format(event, documentType, indexTimezone);
         IndexRequest indexRequest;
@@ -238,19 +237,19 @@ public class Elasticsearch5 extends BaseOutput {
             indexRequest = new IndexRequest(_index, _indexType).source(event);
         } else {
             String _id = Formatter.format(event, documentId, indexTimezone);
-            if(Formatter.isFormat(_id)){
+            if (Formatter.isFormat(_id)) {
                 indexRequest = new IndexRequest(_index, _indexType).source(event);
-            }else{
+            } else {
                 indexRequest = new IndexRequest(_index, _indexType, _id).source(event);
             }
         }
         this.bulkProcessor.add(indexRequest);
         checkNeedWait();
     }
-    
+
     @Override
-    public void sendFailedMsg(Object msg){
-    	
+    public void sendFailedMsg(Object msg) {
+
 //    	if(needDelayTime.get() >  0){//不需要sleep影响性能
 //    		try {
 //				Thread.sleep(needDelayTime.get());
@@ -258,27 +257,27 @@ public class Elasticsearch5 extends BaseOutput {
 //				logger.error("", e);
 //			}
 //    	}
-    	
-    	this.bulkProcessor.add((IndexRequest)msg);
+
+        this.bulkProcessor.add((ActionRequest) msg);
 //    	needDelayTime.set(0);
-    	checkNeedWait();
+        checkNeedWait();
     }
-    
-    
+
+
     @Override
-    public void release(){
-    	if(bulkProcessor!=null)bulkProcessor.close();
+    public void release() {
+        if (bulkProcessor != null) bulkProcessor.close();
     }
-    
-    public void checkNeedWait(){
-    	while(!isClusterOn.get()){//等待集群可用
-    		try {
-    			logger.warn("wait cluster avaliable...");
-				Thread.sleep(1000);//FIXME
-			} catch (InterruptedException e) {
-				logger.error("", e);
-			}
-    	}
+
+    public void checkNeedWait() {
+        while (!isClusterOn.get()) {//等待集群可用
+            try {
+                logger.warn("wait cluster avaliable...");
+                Thread.sleep(1000);//FIXME
+            } catch (InterruptedException e) {
+                logger.error("", e);
+            }
+        }
 //    	sendReqs.incrementAndGet();
 //    	if(sendReqs.get() - ackReqs.get() < maxLag){
 //    		return;
@@ -292,49 +291,49 @@ public class Elasticsearch5 extends BaseOutput {
 //			}
 //    	}
     }
-    
+
 //    public void addAckSeqs(int num){
 //    	ackReqs.addAndGet(num);
 //    }
-    
+
 //    public void setDelayTime(long delayTime){
 //    	if(delayTime > needDelayTime.get()){
 //    		needDelayTime.set(delayTime);
 //    	}
 //    }
-    
-    class ClusterMonitor implements Runnable{
-    	
-    	private TransportClient transportClient;
-    	
-    	public ClusterMonitor(TransportClient client) {
-    		this.transportClient = client;
-		}
 
-		@Override
-		public void run() {
-			while(true) {
-	    	    try {
-	    	        logger.debug("getting es cluster health.");
-	    	        ActionFuture<ClusterHealthResponse> healthFuture = transportClient.admin().cluster().health(Requests.clusterHealthRequest());
-	    	        ClusterHealthResponse healthResponse = healthFuture.get(5, TimeUnit.SECONDS);
-	    	        logger.debug("Get num of node:{}", healthResponse.getNumberOfNodes());
-	    	        logger.debug("Get cluster health:{} ", healthResponse.getStatus());
-	    	        isClusterOn.getAndSet(true);
-	    	    } catch(Throwable t) {
-	    	        if(t instanceof NoNodeAvailableException){//集群不可用
-	    	        	logger.error("the cluster no node avaliable.");
-	    	        	isClusterOn.getAndSet(false);
-                    }else{
-	    	        	isClusterOn.getAndSet(true);
+    class ClusterMonitor implements Runnable {
+
+        private TransportClient transportClient;
+
+        public ClusterMonitor(TransportClient client) {
+            this.transportClient = client;
+        }
+
+        @Override
+        public void run() {
+            while (true) {
+                try {
+                    logger.debug("getting es cluster health.");
+                    ActionFuture<ClusterHealthResponse> healthFuture = transportClient.admin().cluster().health(Requests.clusterHealthRequest());
+                    ClusterHealthResponse healthResponse = healthFuture.get(5, TimeUnit.SECONDS);
+                    logger.debug("Get num of node:{}", healthResponse.getNumberOfNodes());
+                    logger.debug("Get cluster health:{} ", healthResponse.getStatus());
+                    isClusterOn.getAndSet(true);
+                } catch (Throwable t) {
+                    if (t instanceof NoNodeAvailableException) {//集群不可用
+                        logger.error("the cluster no node avaliable.");
+                        isClusterOn.getAndSet(false);
+                    } else {
+                        isClusterOn.getAndSet(true);
                     }
-	    	    }
-	    	    try {
-	    	        Thread.sleep(1000);//FIXME
-	    	    } catch (InterruptedException ie) { 
-	    	    	ie.printStackTrace(); 
-	    	    }
-	    	}
-		}	
+                }
+                try {
+                    Thread.sleep(1000);//FIXME
+                } catch (InterruptedException ie) {
+                    ie.printStackTrace();
+                }
+            }
+        }
     }
 }
