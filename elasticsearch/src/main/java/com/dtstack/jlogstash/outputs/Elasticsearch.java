@@ -303,7 +303,7 @@ public class Elasticsearch extends BaseOutput {
 //			}
 //    	}
 
-        this.bulkProcessor.add((IndexRequest) msg);
+        this.bulkProcessor.add((ActionRequest) msg);
 //    	needDelayTime.set(0);
         checkNeedWait();
     }
