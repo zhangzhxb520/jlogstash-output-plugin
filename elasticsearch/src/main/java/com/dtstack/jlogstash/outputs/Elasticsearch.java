@@ -168,6 +168,13 @@ public class Elasticsearch extends BaseOutput {
         bulkProcessor = BulkProcessor
                 .builder(esclient, new BulkProcessor.Listener() {
 
+                    @Override
+                    public void beforeBulk(long arg0, BulkRequest arg1) {
+                        logger.info("executionId: " + arg0);
+                        logger.info("numberOfActions: "
+                                + arg1.numberOfActions());
+                    }
+
                     @SuppressWarnings("rawtypes")
                     @Override
                     public void afterBulk(long arg0, BulkRequest arg1,
@@ -192,7 +199,7 @@ public class Elasticsearch extends BaseOutput {
                                         break;
                                     default:
                                         if (totalFailed == 0) {
-                                            logger.error("data formate cause {}:{}:{}", item.getIndex(), ((IndexRequest) requests.get(item.getItemId())).sourceAsMap(), item.getFailureMessage());
+                                            logger.error("data formate cause {}:{}", item.getIndex(), item.getFailureMessage());
                                         }
                                         break;
                                 }
@@ -232,13 +239,6 @@ public class Elasticsearch extends BaseOutput {
 
 //                        addAckSeqs(arg1.requests().size());
 //                        setDelayTime(1000);
-                    }
-
-                    @Override
-                    public void beforeBulk(long arg0, BulkRequest arg1) {
-                        logger.info("executionId: " + arg0);
-                        logger.info("numberOfActions: "
-                                + arg1.numberOfActions());
                     }
                 })
                 .setBulkActions(bulkActions)
@@ -293,6 +293,11 @@ public class Elasticsearch extends BaseOutput {
     }
 
     @Override
+    public void release() {
+        if (bulkProcessor != null) bulkProcessor.close();
+    }
+
+    @Override
     public void sendFailedMsg(Object msg) {
 
 //    	if(needDelayTime.get() >  0){
@@ -306,11 +311,6 @@ public class Elasticsearch extends BaseOutput {
         this.bulkProcessor.add((ActionRequest) msg);
 //    	needDelayTime.set(0);
         checkNeedWait();
-    }
-
-    @Override
-    public void release() {
-        if (bulkProcessor != null) bulkProcessor.close();
     }
 
     public void checkNeedWait() {
