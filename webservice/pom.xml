@@ -9,6 +9,12 @@
     <version>1.0.1</version>
     <name>output.webservice</name>
 
+    <parent>
+        <groupId>com.dtstack.jlogstash</groupId>
+        <artifactId>output</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
     <dependencies>
         <dependency>
             <groupId>com.dtstack.jlogstash</groupId>
