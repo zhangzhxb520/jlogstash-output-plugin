@@ -294,7 +294,13 @@ public class Elasticsearch extends BaseOutput {
 
     @Override
     public void release() {
-        if (bulkProcessor != null) bulkProcessor.close();
+        if (bulkProcessor != null) {
+            bulkProcessor.close();
+        }
+
+        if (!executor.isShutdown()) {
+            executor.shutdownNow();
+        }
     }
 
     @Override
@@ -357,7 +363,7 @@ public class Elasticsearch extends BaseOutput {
 
         @Override
         public void run() {
-            while (true) {
+            while (!Thread.currentThread().isInterrupted()) {
                 try {
                     logger.debug("getting es cluster health.");
                     ActionFuture<ClusterHealthResponse> healthFuture = transportClient.admin().cluster().health(Requests.clusterHealthRequest());
@@ -377,10 +383,12 @@ public class Elasticsearch extends BaseOutput {
                         isClusterOn.set(true);
                     }
                 }
+
                 try {
-                    Thread.sleep(3000);//FIXME
+                    Thread.sleep(3000);
                 } catch (InterruptedException ie) {
                     ie.printStackTrace();
+                    Thread.currentThread().interrupt();
                 }
             }
         }

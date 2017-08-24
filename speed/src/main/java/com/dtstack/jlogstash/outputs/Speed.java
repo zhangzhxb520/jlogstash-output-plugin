@@ -59,6 +59,11 @@ public class Speed extends BaseOutput {
         eventNumber.getAndIncrement();
     }
 
+    @Override
+    public void release() {
+        scheduleExecutor.shutdown();
+    }
+
     class SpeedTask implements Runnable {
         @Override
         public void run() {

@@ -21,7 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
 
 /**
  * @author zxb
@@ -71,7 +73,6 @@ public class MongoDB extends BaseOutput {
     private volatile BlockingQueue<WriteModel<Document>> writeModelQueue;
     private Action actionType;
     private ExecutorService receiverThreadExecutor = ThreadPoolUtil.newSingleThreadExecutor(QUEUE_CAPACITY, RECEIVER_THREAD_NAME);
-    private ExecutorService bulkThreadExecutor = ThreadPoolUtil.newFixedThreadPool(BULK_POOL_SIZE, QUEUE_CAPACITY, BULK_THREAD_NAME);
 
     public MongoDB(Map config) {
         super(config);
@@ -171,28 +172,6 @@ public class MongoDB extends BaseOutput {
     @Override
     public void release() {
         receiverThreadExecutor.shutdownNow();
-
-        try {
-            bulkThreadExecutor.awaitTermination(5, TimeUnit.MINUTES);
-        } catch (InterruptedException e) {
-            LOGGER.error("BulkThread被中断", e);
-        } finally {
-            bulkThreadExecutor.shutdown();
-        }
-
-        if (client != null) {
-            client.close();
-        }
-    }
-
-    private void submit(List<WriteModel<Document>> list) {
-        if (list.size() > 0) {
-            try {
-                coll.bulkWrite(list, new BulkWriteOptions().ordered(false));
-            } catch (Exception e) {
-                LOGGER.error("bulk write data error!", e);
-            }
-        }
     }
 
     private class ReceiverThread implements Runnable {
@@ -207,37 +186,17 @@ public class MongoDB extends BaseOutput {
                     cachedModelList.add(writeModel);
 
                     if (cachedModelList.size() >= size) {
-                        // 提交一批数据
-                        Future<?> future = bulkThreadExecutor.submit(new BulkThread(cachedModelList));
+                        coll.bulkWrite(cachedModelList, new BulkWriteOptions().ordered(false));
                         cachedModelList = new ArrayList<WriteModel<Document>>(size + 1);
                     }
                 }
             } catch (InterruptedException e) {
                 LOGGER.error("MongoDB的ReceiverThread被中断", e);
             } finally {
-                flush();
+                if (cachedModelList.size() > 0) {
+                    coll.bulkWrite(cachedModelList, new BulkWriteOptions().ordered(false));
+                }
             }
         }
-
-        private void flush() {
-            if (cachedModelList.size() > 0) {
-                submit(cachedModelList);
-            }
-        }
-
-    }
-
-    private class BulkThread implements Runnable {
-
-        private List<WriteModel<Document>> cachedModelList;
-
-        public BulkThread(List<WriteModel<Document>> cachedModelList) {
-            this.cachedModelList = cachedModelList;
-        }
-
-        public void run() {
-            submit(cachedModelList);
-        }
-
     }
 }
